@@ -11,7 +11,7 @@ import (
 func TestMatchSessionFound(t *testing.T) {
 	// Arrange
 	storage := NewStorage()
-	service := NewService(Config{
+	service := NewService(MatchmakingConfig{
 		QueueSize:                10,
 		MinGroupSize:             2,
 		FindGroupEverySeconds:    1,
@@ -58,7 +58,7 @@ func TestMatchSessionFound(t *testing.T) {
 func TestMatchSessionNotFound(t *testing.T) {
 	// Arrange
 	storage := NewStorage()
-	service := NewService(Config{
+	service := NewService(MatchmakingConfig{
 		QueueSize:                10,
 		MinGroupSize:             2,
 		FindGroupEverySeconds:    1,
@@ -108,7 +108,7 @@ func TestMatchSessionNotFound(t *testing.T) {
 func TestMatchSessionRemovePlayerFromQueue(t *testing.T) {
 	// Arrange
 	storage := NewStorage()
-	service := NewService(Config{
+	service := NewService(MatchmakingConfig{
 		QueueSize:                10,
 		MinGroupSize:             2,
 		FindGroupEverySeconds:    1,
@@ -165,7 +165,7 @@ func TestMatchSessionRemovePlayerFromQueue(t *testing.T) {
 func TestMatchSessionPlayerTimeout(t *testing.T) {
 	// Arrange
 	storage := NewStorage()
-	service := NewService(Config{
+	service := NewService(MatchmakingConfig{
 		QueueSize:                10,
 		MinGroupSize:             2,
 		FindGroupEverySeconds:    1,
@@ -196,7 +196,7 @@ func TestMatchSessionPlayerTimeout(t *testing.T) {
 			case <-time.After(time.Duration(service.config.MatchTimeoutAfterSeconds)*time.Second + time.Millisecond*100):
 				cancelFunc()
 			case match := <-output:
-				if match.Type == ChangesTypeMatchTimeout {
+				if match.Type == ChangesTypeTimeout {
 					if slices.ContainsFunc(match.Players, func(p Player) bool {
 						return p.ID == player.ID
 					}) {
@@ -216,7 +216,7 @@ func TestMatchSessionPlayerTimeout(t *testing.T) {
 func TestMatchSessionEmptyQueue(t *testing.T) {
 	// Arrange
 	storage := NewStorage()
-	service := NewService(Config{
+	service := NewService(MatchmakingConfig{
 		QueueSize:                10,
 		MinGroupSize:             2,
 		FindGroupEverySeconds:    1,

@@ -53,7 +53,9 @@ func (m *Storage) GetSortedByLevelPlayers() []StoredPlayer {
 	m.l.RLock()
 	defer m.l.RUnlock()
 
-	return m.players
+	players := make([]StoredPlayer, len(m.players))
+	copy(players, m.players)
+	return players
 }
 
 // TotalPlayers returns the total number of waiting players.

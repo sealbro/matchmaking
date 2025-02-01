@@ -13,10 +13,10 @@ type Player struct {
 type PlayerChangesType = string
 
 const (
-	ChangesTypeAdded        PlayerChangesType = "player_added"
-	ChangesTypeRemoved      PlayerChangesType = "player_removed"
-	ChangesTypeMatchTimeout PlayerChangesType = "match_timeout"
-	ChangesTypeMatchFound   PlayerChangesType = "match_found"
+	ChangesTypeAdded      PlayerChangesType = "added"
+	ChangesTypeRemoved    PlayerChangesType = "removed"
+	ChangesTypeTimeout    PlayerChangesType = "timeout"
+	ChangesTypeMatchFound PlayerChangesType = "matched"
 )
 
 type MatchSession struct {

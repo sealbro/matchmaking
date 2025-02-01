@@ -43,12 +43,12 @@ func (qc queueCommand) storedPlayers() []StoredPlayer {
 
 type Service struct {
 	queue   chan queueCommand
-	config  Config
+	config  MatchmakingConfig
 	storage *Storage
 }
 
 // NewService creates a new matchmaking service with the provided configuration and storage.
-func NewService(config Config, storage *Storage) *Service {
+func NewService(config MatchmakingConfig, storage *Storage) *Service {
 	return &Service{
 		config:  config,
 		storage: storage,
@@ -90,7 +90,7 @@ func (m *Service) Run(ctx context.Context) <-chan MatchSession {
 				switch qc.command {
 				case timeoutPlayerCommand:
 					m.storage.RemovePlayers(qc.storedPlayers())
-					matchOutput <- NewMatchSession(ChangesTypeMatchTimeout, qc.players...)
+					matchOutput <- NewMatchSession(ChangesTypeTimeout, qc.players...)
 				case createMatchCommand:
 					m.storage.RemovePlayers(qc.storedPlayers())
 					matchOutput <- NewMatchSession(ChangesTypeMatchFound, qc.players...)

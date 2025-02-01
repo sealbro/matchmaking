@@ -1,9 +1,9 @@
 package matchmaking
 
-type Config struct {
-	QueueSize                int `envconfig:"QUEUE_SIZE" default:"5"`
-	MinGroupSize             int `envconfig:"MIN_GROUP_SIZE" default:"10"`
-	FindGroupEverySeconds    int `envconfig:"FIND_GROUP_EVERY_SECONDS" default:"5"`
-	MaxLevelDiff             int `envconfig:"MAX_LEVEL_DIFF" default:"5"`
-	MatchTimeoutAfterSeconds int `envconfig:"MATCH_TIMEOUT_AFTER_SECONDS" default:"60"`
+type MatchmakingConfig struct {
+	QueueSize                int `env:"QUEUE_SIZE, default=15"`
+	MinGroupSize             int `env:"MIN_GROUP_SIZE, default=10"`
+	MaxLevelDiff             int `env:"MAX_LEVEL_DIFF, default=10"`
+	FindGroupEverySeconds    int `env:"FIND_GROUP_EVERY_SECONDS, default=1"`
+	MatchTimeoutAfterSeconds int `env:"MATCH_TIMEOUT_AFTER_SECONDS, default=60"`
 }
