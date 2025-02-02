@@ -10,13 +10,14 @@ import (
 	"matchmaking/internal/app"
 	"matchmaking/internal/matchmaking"
 	"matchmaking/internal/metrics"
+	"matchmaking/internal/server"
+	"matchmaking/pkg/grpc"
 	"matchmaking/pkg/logger"
-	"math/rand/v2"
 	"os"
 	"os/signal"
-	"time"
 )
 
+// main is the entry point of service
 func main() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
@@ -32,25 +33,30 @@ func main() {
 	metrics.RegisterOn(prometheusRegister)
 	defer metrics.UnRegisterFrom(prometheusRegister)
 
+	// matchmaking service
 	storage := matchmaking.NewStorage()
 	service := matchmaking.NewService(config.MatchmakingConfig, storage)
-
 	matchOutput := service.Run(ctx)
 
+	// grpc server
+	matchmakingServer := server.NewMatchmakingServer(logger, service)
+	grpcServer := grpc.NewGRPC(logger, config.PublicGrpcConfig).
+		AddGrpcHealthCheck().
+		AddServerImplementation(matchmakingServer.Register())
+
+	// private API metrics
 	privateApiBuilder := api.NewPrivateApi(logger, config.PrivateApiConfig)
 	privateApiBuilder.RegisterPrivateRoutes()
 	privateApi := privateApiBuilder.Build()
+
+	// run servers
 	group, errCtx := errgroup.WithContext(ctx)
-	group.Go(func() error {
-		matchOutputProcessor(errCtx, logger, matchOutput)
-		return nil
-	})
-	group.Go(func() error {
-		emulatePlayersActivity(service)
-		return nil
-	})
+	group.Go(func() error { return matchmakingServer.RunStatusUpdater(errCtx, matchOutput) })
 	group.Go(func() error {
 		return privateApi.ListenAndServe()
+	})
+	group.Go(func() error {
+		return grpcServer.ListenAndServe()
 	})
 
 	// graceful shutdown
@@ -61,34 +67,5 @@ func main() {
 		logger.ErrorContext(errCtx, "failed to start private API", slog.String("error", errCtx.Err().Error()))
 	case <-interrupt:
 		logger.InfoContext(ctx, "shutting down")
-	}
-}
-
-func matchOutputProcessor(ctx context.Context, logger *slog.Logger, matchOutput <-chan matchmaking.MatchSession) {
-	for match := range matchOutput {
-		metrics.TotalPlayers.With(prometheusclient.Labels{"type": match.Type}).Add(float64(len(match.Players)))
-		switch match.Type {
-		case matchmaking.ChangesTypeMatchFound:
-			logger.InfoContext(ctx, "Match found:", slog.Any("match", match))
-		case matchmaking.ChangesTypeAdded:
-
-			logger.DebugContext(ctx, "Player added:", slog.Any("match", match))
-		case matchmaking.ChangesTypeRemoved:
-
-			logger.DebugContext(ctx, "Player removed:", slog.Any("match", match))
-		case matchmaking.ChangesTypeTimeout:
-			logger.WarnContext(ctx, "Match timeout:", slog.Any("match", match))
-		}
-	}
-}
-
-func emulatePlayersActivity(service *matchmaking.Service) {
-	for i := 0; i < 1000; i++ {
-		time.Sleep(time.Millisecond * time.Duration(rand.IntN(1000)))
-		player := matchmaking.Player{
-			ID:    fmt.Sprintf("player-%d", i),
-			Level: rand.IntN(30),
-		}
-		service.AddPlayer(player)
 	}
 }

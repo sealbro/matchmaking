@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// main this is the simplest example of using the matchmaking package
 func main() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()

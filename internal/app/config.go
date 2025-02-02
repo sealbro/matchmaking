@@ -6,12 +6,13 @@ import (
 	"github.com/sethvargo/go-envconfig"
 	"matchmaking/internal/api"
 	"matchmaking/internal/matchmaking"
+	"matchmaking/pkg/grpc"
 )
 
 type Config struct {
 	matchmaking.MatchmakingConfig
 	api.PrivateApiConfig
-	api.PublicApiConfig
+	grpc.PublicGrpcConfig
 	LogLevel string `env:"LOG_LEVEL, default=DEBUG"`
 }
 
