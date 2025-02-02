@@ -5,11 +5,10 @@ FROM golang:${GO_VERSION} as builder
 WORKDIR /src
 COPY . .
 
-WORKDIR /src/cmd/service
+ARG CMD_PATH=cmd/service
+WORKDIR /src/${CMD_PATH}
 
-RUN go vet ./...
-RUN go test -cover ./...
-RUN CGO_ENABLED=1 go build -o /bin/runner
+RUN CGO_ENABLED=0 go build -o /bin/runner
 
 FROM gcr.io/distroless/base as runtime
 

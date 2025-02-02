@@ -23,6 +23,9 @@ jobs:
       with:
         args: -exclude=G103,G115,G404,G402 ./...
     -
+      name: Run go test
+      run: go test -cover ./...
+    -
       name: Set up QEMU
       uses: docker/setup-qemu-action@v3
     -

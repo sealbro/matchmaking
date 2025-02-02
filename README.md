@@ -2,7 +2,26 @@
 
 This service is responsible for matchmaking players into games. It is a simple service that takes a list of players and matches them into games based on their skill level.
 
+[![Hub](https://badgen.net/docker/pulls/sealbro/matchmaking?icon=docker&label=matchmaking)](https://hub.docker.com/r/sealbro/matchmaking/)
+
 ## How to run
+
+### Docker
+```bash
+docker compose --env-file example.env up
+```
+
+### Local
+
+- Run the matchmaking service
+```bash
+go run cmd/service/main.go
+```
+
+- Run the workload generator
+```bash
+go run cmd/workload/main.go
+```
 
 ### Environment variables
 
@@ -50,13 +69,12 @@ matchmaking_total{type="removed"} 120
 - [X] Get metrics for the matchmaking process
 - [X] Make simple API for the service
 
-## What is didn't covered
+## What is not covered
 
 - [ ] Security (authentication, authorization)
 - [ ] Load balancing and high availability
 - [ ] Monitoring and Tracing
 - [ ] Permanent storage and restore after service restart
-- [ ] Web Socket events for real-time updates
 - [ ] How to process next matchmaking for players which can be in session now?
 
 ## Links

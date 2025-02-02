@@ -1,0 +1,26 @@
+services:
+  matchmaking:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CMD_PATH: cmd/service
+    ports:
+      - "8081:8081"
+      - "32023:32023"
+  workload:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CMD_PATH: cmd/workload
+    environment:
+        - SERVER_ADDR=matchmaking:32023
+        - PLAYER_COUNT=1000
+        - PERCENT_TO_REMOVE=15
+        - MAX_LEVEL=100
+        - MAX_DELAY_BEFORE_ADD_PLAYER=1000
+    links:
+      - matchmaking
+    depends_on:
+      - matchmaking

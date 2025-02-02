@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/sethvargo/go-envconfig"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
 	"log/slog"
 	gen "matchmaking/generated/grpc"
 	"matchmaking/internal/matchmaking"
@@ -14,35 +14,43 @@ import (
 	"time"
 )
 
-const (
-	serverAddr              = "localhost:32023"
-	playerCount             = 1000
-	percentToRemove         = 15
-	maxLevel                = 10
-	maxDelayBeforeAddPlayer = 1000
-)
+type Config struct {
+	ServerAddr              string `env:"SERVER_ADDR, default=localhost:32023"`
+	PlayerCount             int    `env:"PLAYER_COUNT, default=1000"`
+	PercentToRemove         int    `env:"PERCENT_TO_REMOVE, default=15"`
+	MaxLevel                int32  `env:"MAX_LEVEL, default=10"`
+	MaxDelayBeforeAddPlayer int    `env:"MAX_DELAY_BEFORE_ADD_PLAYER, default=1000"`
+}
 
 // main this is a workload generator for the matchmaking service
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	slog.SetDefault(logger)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
-	conn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	var conf Config
+	if err := envconfig.Process(ctx, &conf); err != nil {
+		logger.Error("failed to process env vars:", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	conn, err := grpc.NewClient(conf.ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		logger.Error("could not connect to server:", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 	defer conn.Close()
 
 	client := gen.NewMatchmakingClient(conn)
 
-	for i := 0; i < playerCount; i++ {
-		time.Sleep(time.Millisecond * time.Duration(rand.IntN(maxDelayBeforeAddPlayer)))
+	for i := 0; i < conf.PlayerCount; i++ {
+		time.Sleep(time.Millisecond * time.Duration(rand.IntN(conf.MaxDelayBeforeAddPlayer)))
 		player := gen.PlayerData{
 			Id:    fmt.Sprintf("player-%d", i),
-			Level: rand.Int32N(maxLevel),
+			Level: rand.Int32N(conf.MaxLevel),
 		}
+		logger.Info("adding player", slog.String("player_id", player.Id))
 
 		_, err = client.AddPlayer(ctx, &gen.AddPlayerRequest{Players: []*gen.PlayerData{&player}})
 		if err != nil {
@@ -65,7 +73,7 @@ func main() {
 
 			// emulate player activity
 			n := rand.IntN(100)
-			if n < percentToRemove { // % chance to remove player
+			if n < conf.PercentToRemove { // % chance to remove player
 				go func() {
 					time.Sleep(time.Second * time.Duration(rand.IntN(30)))
 					_, err := client.RemovePlayer(ctx, &gen.RemovePlayerRequest{Players: []*gen.PlayerData{&player}})
