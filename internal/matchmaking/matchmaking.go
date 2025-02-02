@@ -57,13 +57,13 @@ func NewService(config MatchmakingConfig, storage *Storage) *Service {
 }
 
 // AddPlayer adds a player to the matchmaking queue.
-func (m *Service) AddPlayer(player Player) {
-	m.queue <- newQueueCommand(addPlayerCommand, player)
+func (m *Service) AddPlayer(player ...Player) {
+	m.queue <- newQueueCommand(addPlayerCommand, player...)
 }
 
 // RemovePlayer removes a player from the matchmaking queue.
-func (m *Service) RemovePlayer(player Player) {
-	m.queue <- newQueueCommand(removePlayerCommand, player)
+func (m *Service) RemovePlayer(player ...Player) {
+	m.queue <- newQueueCommand(removePlayerCommand, player...)
 }
 
 // PlayersInQueue returns the total number of players in the matchmaking queue.
@@ -164,7 +164,7 @@ func (m *Service) findMatch(players []Player, target Player) []Player {
 	minDiff := math.MaxInt
 
 	for _, p := range players {
-		if p.ID == target.ID { // Additional check to skip self
+		if p.ID == target.ID { // Check to skip self
 			continue
 		}
 		diff := int(math.Abs(float64(p.Level - target.Level)))
