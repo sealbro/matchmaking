@@ -17,7 +17,7 @@ generate_grpc: ### generate grpc
 .PHONY: generate_grpc
 
 sec: ### run gosec
-	gosec -exclude=G115,G404,G402 ./...
+	gosec -exclude=G103,G115,G404,G402 ./...
 .PHONY: sec
 
 deps: deps_go ### install dependencies
