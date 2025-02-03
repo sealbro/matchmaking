@@ -2,6 +2,7 @@ package matchmaking
 
 import (
 	"context"
+	"log/slog"
 	"math"
 	"time"
 )
@@ -45,12 +46,14 @@ type Service struct {
 	queue   chan queueCommand
 	config  MatchmakingConfig
 	storage *Storage
+	logger  *slog.Logger
 }
 
 // NewService creates a new matchmaking service with the provided configuration and storage.
-func NewService(config MatchmakingConfig, storage *Storage) *Service {
+func NewService(logger *slog.Logger, config MatchmakingConfig, storage *Storage) *Service {
 	return &Service{
 		config:  config,
+		logger:  logger,
 		storage: storage,
 		queue:   make(chan queueCommand, config.QueueSize),
 	}
@@ -89,14 +92,14 @@ func (m *Service) Run(ctx context.Context) <-chan MatchSession {
 
 				switch qc.command {
 				case timeoutPlayerCommand:
-					m.storage.RemovePlayers(qc.storedPlayers())
-					matchOutput <- NewMatchSession(ChangesTypeTimeout, qc.players...)
+					removedPlayers := m.storage.RemovePlayers(qc.storedPlayers())
+					matchOutput <- NewMatchSession(ChangesTypeTimeout, removedPlayers...)
 				case createMatchCommand:
-					m.storage.RemovePlayers(qc.storedPlayers())
-					matchOutput <- NewMatchSession(ChangesTypeMatchFound, qc.players...)
+					removedPlayers := m.storage.RemovePlayers(qc.storedPlayers())
+					matchOutput <- NewMatchSession(ChangesTypeMatchFound, removedPlayers...)
 				case removePlayerCommand:
-					m.storage.RemovePlayers(qc.storedPlayers())
-					matchOutput <- NewMatchSession(ChangesTypeRemoved, qc.players...)
+					removedPlayers := m.storage.RemovePlayers(qc.storedPlayers())
+					matchOutput <- NewMatchSession(ChangesTypeRemoved, removedPlayers...)
 				case addPlayerCommand:
 					// TODO: check if player already exists
 					m.storage.AddPlayers(qc.storedPlayers())
@@ -109,22 +112,21 @@ func (m *Service) Run(ctx context.Context) <-chan MatchSession {
 	// start matchmaking
 	go func() {
 		// try to find a match session every tick
-		tick := time.Tick(time.Second * time.Duration(m.config.FindGroupEverySeconds))
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-tick:
-				allWaitingPlayers := m.storage.GetSortedByLevelPlayers()
-				if len(allWaitingPlayers) == 0 {
+			case <-time.After(m.config.DurationToFindGroup()):
+				if m.storage.TotalPlayers() == 0 {
 					continue
 				}
 
 				// split by expired and actual players
+				allWaitingPlayers := m.storage.GetSortedByLevelPlayers()
 				var expiredPlayers []Player
-				players := make([]Player, 0, len(allWaitingPlayers))
+				var players []Player
 				for _, p := range allWaitingPlayers {
-					if time.Since(p.Created) > time.Second*time.Duration(m.config.MatchTimeoutAfterSeconds) {
+					if time.Since(p.Created) > m.config.TimeoutDuration() {
 						expiredPlayers = append(expiredPlayers, p.Player)
 					} else {
 						players = append(players, p.Player)
@@ -135,13 +137,26 @@ func (m *Service) Run(ctx context.Context) <-chan MatchSession {
 				}
 
 				// try to find a match for each player
-				for _, player := range players {
-					matchPlayers := m.findMatch(players, player)
-					if len(matchPlayers) == 0 {
+				count := 0
+				buffer := make([]Player, 0, m.config.MinGroupSize)
+				for i := 0; i < len(players); i++ {
+					buffer = buffer[:0]
+					player := players[i]
+					matchPlayers, lastIndex := m.findMatch(players[i:], player, buffer)
+					if len(matchPlayers) < m.config.MinGroupSize {
 						continue
 					}
-					m.queue <- newQueueCommand(createMatchCommand, matchPlayers...)
-					break
+					copyPlayers := make([]Player, len(matchPlayers))
+					copy(copyPlayers, matchPlayers)
+					m.queue <- newQueueCommand(createMatchCommand, copyPlayers...)
+					i += lastIndex
+					count++
+				}
+
+				if count > 0 {
+					m.logger.InfoContext(ctx, "Matchmaking by tick:",
+						slog.Int("players_matched", count*m.config.MinGroupSize),
+						slog.Int("total_players", len(players)))
 				}
 
 				// TODO: create not full group after some time
@@ -154,33 +169,35 @@ func (m *Service) Run(ctx context.Context) <-chan MatchSession {
 }
 
 // Match players within a simple Elo range
-func (m *Service) findMatch(players []Player, target Player) []Player {
+func (m *Service) findMatch(players []Player, target Player, bestMatch []Player) ([]Player, int) {
 	if len(players) < m.config.MinGroupSize {
-		return nil
+		return nil, 0
 	}
 
-	bestMatch := make([]Player, 0, m.config.MinGroupSize)
 	bestMatch = append(bestMatch, target)
-	minDiff := math.MaxInt
 
-	for _, p := range players {
+	lastIndex := 0
+
+	for i, p := range players {
 		if p.ID == target.ID { // Check to skip self
 			continue
 		}
 		diff := int(math.Abs(float64(p.Level - target.Level)))
-		if diff <= m.config.MaxLevelDiff && diff < minDiff {
+		if diff <= m.config.MaxLevelDiff {
 			bestMatch = append(bestMatch, p)
-			minDiff = diff
 		}
 
 		if len(bestMatch) == m.config.MinGroupSize {
+			lastIndex = i
 			break
 		}
 	}
 
 	if len(bestMatch) == m.config.MinGroupSize {
-		return bestMatch
+		return bestMatch, lastIndex
 	}
 
-	return nil
+	bestMatch = bestMatch[:0]
+
+	return nil, 0
 }

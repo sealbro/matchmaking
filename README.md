@@ -7,8 +7,9 @@ This service is responsible for matchmaking players into games. It is a simple s
 ## How to run
 
 ### Docker
+
 ```bash
-docker compose --env-file example.env up
+docker compose up --build
 ```
 
 ### Local
@@ -32,7 +33,7 @@ go run cmd/workload/main.go
 | `GRPC_PROTOCOL`               | gRPC protocol                  | `tcp`    |
 | `GRPC_ADDRESS`                | gRPC address                   | `:32023` |
 | `LOG_LEVEL`                   | slog level                     | `DEBUG`  |
-| `QUEUE_SIZE`                  | Size of the matchmaking queue  | `10`     |
+| `QUEUE_SIZE`                  | Size of the matchmaking queue  | `25`     |
 | `MIN_GROUP_SIZE`              | Minimum group size             | `10`     |
 | `MAX_LEVEL_DIFF`              | Maximum level difference       | `10`     |
 | `FIND_GROUP_EVERY_SECONDS`    | Find group every seconds       | `1`      |
@@ -46,16 +47,16 @@ go run cmd/workload/main.go
 ```
 # HELP matchmaking_offline Total number of offline players in the matchmaking service.
 # TYPE matchmaking_offline counter
-matchmaking_offline 2000
+matchmaking_offline 4034
 # HELP matchmaking_online Total number of online players in the matchmaking service.
 # TYPE matchmaking_online counter
-matchmaking_online 2000
+matchmaking_online 4200
 # HELP matchmaking_total Total number of players in the matchmaking service.
 # TYPE matchmaking_total gauge
-matchmaking_total{type="matched"} 800
-matchmaking_total{type="added"}   1000
-matchmaking_total{type="timeout"} 80
-matchmaking_total{type="removed"} 120
+matchmaking_total{type="added"} 4200
+matchmaking_total{type="matched"} 4140
+matchmaking_total{type="removed"} 23
+matchmaking_total{type="timeout"} 37
 ```
 
 

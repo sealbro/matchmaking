@@ -30,5 +30,5 @@ deps_go: ### install dependencies from go
 .PHONY: deps_brew
 
 test: ### run tests
-	go test -v ./...
+	go test -cover ./...
 .PHONY: test

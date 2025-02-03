@@ -13,6 +13,7 @@ import (
 	"matchmaking/internal/server"
 	"matchmaking/pkg/grpc"
 	"matchmaking/pkg/logger"
+	//_ "net/http/pprof"
 	"os"
 	"os/signal"
 )
@@ -35,7 +36,7 @@ func main() {
 
 	// matchmaking service
 	storage := matchmaking.NewStorage()
-	service := matchmaking.NewService(config.MatchmakingConfig, storage)
+	service := matchmaking.NewService(logger, config.MatchmakingConfig, storage)
 	matchOutput := service.Run(ctx)
 
 	// grpc server

@@ -72,7 +72,7 @@ func (s *MatchmakingServer) RemovePlayer(_ context.Context, req *gen.RemovePlaye
 }
 
 func (s *MatchmakingServer) Status(req *gen.StatusRequest, stream grpc.ServerStreamingServer[gen.StatusResponse]) error {
-	s.logger.Info("Status request", slog.Any("request", req))
+	s.logger.Debug("Status request", slog.Any("request", req))
 
 	// TODO: check if player exists and authenticated
 	s.l.Lock()
@@ -123,7 +123,7 @@ func (s *MatchmakingServer) RunStatusUpdater(ctx context.Context, outputStatus <
 
 					err := stream.Send(resp)
 					if err != nil {
-						s.logger.Error("failed to send status", slog.String("player_id", player.ID), slog.String("error", err.Error()))
+						s.logger.DebugContext(ctx, "failed to send status", slog.String("player_id", player.ID), slog.String("error", err.Error()))
 					}
 				}
 			}

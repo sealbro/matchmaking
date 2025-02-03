@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"matchmaking/internal/app"
 	"matchmaking/internal/matchmaking"
 	"math/rand/v2"
@@ -21,29 +22,30 @@ func main() {
 		panic(fmt.Errorf("failed to load config: %w", err))
 	}
 
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	storage := matchmaking.NewStorage()
-	service := matchmaking.NewService(config.MatchmakingConfig, storage)
+	service := matchmaking.NewService(logger, config.MatchmakingConfig, storage)
 
 	matchOutput := service.Run(ctx)
 	go func() {
 		for match := range matchOutput {
 			switch match.Type {
 			case matchmaking.ChangesTypeMatchFound:
-				fmt.Println("|||---->>> Match found:", match)
+				logger.Info("Match found:", slog.Any("match", match))
 			case matchmaking.ChangesTypeAdded:
-				fmt.Println("Player added:", match)
+				logger.Info("Player added:", slog.Any("match", match))
 			case matchmaking.ChangesTypeRemoved:
-				fmt.Println("|----> Player removed:", match)
+				logger.Info("Player removed:", slog.Any("match", match))
 			case matchmaking.ChangesTypeTimeout:
-				fmt.Println("|----> Player timeout:", match)
+				logger.Info("Player timeout:", slog.Any("match", match))
 			default:
-				fmt.Println(match)
+				logger.Info("Unknown match type:", slog.Any("match", match))
 			}
 		}
 	}()
 
 	go func() {
-		for i := 0; i < 1000; i++ {
+		for i := 0; i < 100; i++ {
 			time.Sleep(time.Millisecond * time.Duration(rand.IntN(1000)))
 			player := matchmaking.Player{
 				ID:    fmt.Sprintf("player-%d", i),

@@ -8,6 +8,13 @@ services:
     ports:
       - "8081:8081"
       - "32023:32023"
+    environment:
+      - LOG_LEVEL=INFO
+      - QUEUE_SIZE=25
+      - MIN_GROUP_SIZE=10
+      - MAX_LEVEL_DIFF=10
+      - FIND_GROUP_EVERY_SECONDS=1
+      - MATCH_TIMEOUT_AFTER_SECONDS=60
   workload:
     build:
       context: .
@@ -15,11 +22,13 @@ services:
       args:
         CMD_PATH: cmd/workload
     environment:
-        - SERVER_ADDR=matchmaking:32023
-        - PLAYER_COUNT=1000
-        - PERCENT_TO_REMOVE=15
-        - MAX_LEVEL=100
-        - MAX_DELAY_BEFORE_ADD_PLAYER=1000
+      - LOG_LEVEL=INFO
+      - SERVER_ADDR=matchmaking:32023
+      - PLAYER_COUNT=42
+      - GOROUTINE_COUNT=100
+      - PERCENT_TO_REMOVE=15
+      - MAX_LEVEL=100
+      - MAX_DELAY_BEFORE_ADD_PLAYER=1000
     links:
       - matchmaking
     depends_on:

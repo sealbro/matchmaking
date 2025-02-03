@@ -49,6 +49,11 @@ func (a *PrivateApi) RegisterPrivateRoutes() {
 	a.Router.HandleFunc("/readiness", a.readiness).Methods("GET")
 	a.Router.Handle("/metrics", promhttp.Handler()).Methods("GET")
 
+	// Register pprof handlers
+	//a.Router.HandleFunc("/debug/pprof/", http.DefaultServeMux.ServeHTTP)
+	//a.Router.HandleFunc("/debug/pprof/profile", http.DefaultServeMux.ServeHTTP)
+	//a.Router.HandleFunc("/debug/pprof/heap", http.DefaultServeMux.ServeHTTP)
+
 	a.logger.Info("Private server", slog.String("url", fmt.Sprintf("http://%s%s", a.Addr(), "/metrics")))
 }
 

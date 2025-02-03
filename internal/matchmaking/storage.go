@@ -35,17 +35,25 @@ func (m *Storage) AddPlayers(players []StoredPlayer) {
 }
 
 // RemovePlayers removes players from the storage.
-func (m *Storage) RemovePlayers(players []StoredPlayer) {
+func (m *Storage) RemovePlayers(players []StoredPlayer) []Player {
 	m.l.Lock()
 	defer m.l.Unlock()
 
+	removedPlayers := make([]Player, 0, len(players))
 	for _, player := range players {
-		m.players = slices.DeleteFunc(m.players, func(p StoredPlayer) bool {
+		newPlayers := slices.DeleteFunc(m.players, func(p StoredPlayer) bool {
 			return p.ID == player.ID
 		})
+		if len(newPlayers) == len(m.players) {
+			continue
+		}
+		removedPlayers = append(removedPlayers, player.Player)
+		m.players = newPlayers
 	}
 
 	m.sortPlayersByLevel()
+
+	return removedPlayers
 }
 
 // GetSortedByLevelPlayers returns all players sorted by level.
