@@ -80,16 +80,15 @@ func (m *Service) Run(ctx context.Context) <-chan MatchSession {
 
 	// start receiving commands
 	go func() {
+		defer close(matchOutput)
 		for {
 			select {
 			case <-ctx.Done():
-				close(matchOutput)
 				return
 			case qc := <-m.queue:
 				if len(qc.players) == 0 {
 					continue
 				}
-
 				switch qc.command {
 				case timeoutPlayerCommand:
 					removedPlayers := m.storage.RemovePlayers(qc.storedPlayers())
@@ -105,6 +104,8 @@ func (m *Service) Run(ctx context.Context) <-chan MatchSession {
 					m.storage.AddPlayers(qc.storedPlayers())
 					matchOutput <- NewMatchSession(ChangesTypeAdded, qc.players...)
 				}
+			default:
+				time.Sleep(time.Millisecond * 10)
 			}
 		}
 	}()

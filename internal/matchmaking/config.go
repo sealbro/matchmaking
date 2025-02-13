@@ -11,7 +11,7 @@ type MatchmakingConfig struct {
 }
 
 func (c MatchmakingConfig) DurationToFindGroup() time.Duration {
-	return time.Duration(c.FindGroupEverySeconds) * time.Millisecond
+	return time.Duration(c.FindGroupEverySeconds) * time.Second
 }
 
 func (c MatchmakingConfig) TimeoutDuration() time.Duration {

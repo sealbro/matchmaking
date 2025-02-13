@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"slices"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -24,9 +25,6 @@ func TestMatchSessionFound(t *testing.T) {
 		MaxLevelDiff:             1,
 		MatchTimeoutAfterSeconds: 60,
 	}, storage)
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
-
-	// Act
 	players := []Player{
 		{ID: "1", Level: 1},
 		{ID: "2", Level: 10},
@@ -36,29 +34,33 @@ func TestMatchSessionFound(t *testing.T) {
 		{ID: "6", Level: 2},
 	}
 
-	output := service.Run(ctx)
+	// Act
+	synctest.Run(func() {
+		ctx, cancelFunc := context.WithTimeout(t.Context(), time.Second*5)
+		output := service.Run(ctx)
 
-	for _, p := range players {
-		service.AddPlayer(p)
-	}
-
-	allPlayersFound := false
-	for match := range output {
-		if match.Type != ChangesTypeMatchFound {
-			continue
+		for _, p := range players {
+			service.AddPlayer(p)
 		}
 
-		allPlayersFound = true
-		for _, pp := range []Player{players[0], players[5]} {
-			allPlayersFound = allPlayersFound && slices.ContainsFunc(match.Players, func(p Player) bool {
-				return p.ID == pp.ID
-			})
-		}
-		cancelFunc()
-	}
+		allPlayersFound := false
+		for match := range output {
+			if match.Type != ChangesTypeMatchFound {
+				continue
+			}
 
-	// Assert
-	assert.True(t, allPlayersFound)
+			allPlayersFound = true
+			for _, pp := range []Player{players[0], players[5]} {
+				allPlayersFound = allPlayersFound && slices.ContainsFunc(match.Players, func(p Player) bool {
+					return p.ID == pp.ID
+				})
+			}
+			cancelFunc()
+		}
+
+		// Assert
+		assert.True(t, allPlayersFound)
+	})
 }
 
 func TestMatchSessionAllFound(t *testing.T) {
@@ -67,13 +69,10 @@ func TestMatchSessionAllFound(t *testing.T) {
 	service := NewService(emptyLogger, MatchmakingConfig{
 		QueueSize:                10,
 		MinGroupSize:             2,
-		FindGroupEverySeconds:    1000,
+		FindGroupEverySeconds:    1,
 		MaxLevelDiff:             10,
 		MatchTimeoutAfterSeconds: 60,
 	}, storage)
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
-
-	// Act
 	players := []Player{
 		{ID: "1", Level: 1},
 		{ID: "2", Level: 1},
@@ -83,32 +82,36 @@ func TestMatchSessionAllFound(t *testing.T) {
 		{ID: "6", Level: 2},
 	}
 
-	output := service.Run(ctx)
+	// Act
+	synctest.Run(func() {
+		ctx, cancelFunc := context.WithTimeout(t.Context(), time.Second*5)
+		output := service.Run(ctx)
 
-	for _, p := range players {
-		service.AddPlayer(p)
-	}
-
-	mapPlayers := make(map[string]Player, len(players))
-	for _, p := range players {
-		mapPlayers[p.ID] = p
-	}
-	for match := range output {
-		if match.Type != ChangesTypeMatchFound {
-			continue
+		for _, p := range players {
+			service.AddPlayer(p)
 		}
 
-		for _, p := range match.Players {
-			delete(mapPlayers, p.ID)
+		mapPlayers := make(map[string]Player, len(players))
+		for _, p := range players {
+			mapPlayers[p.ID] = p
+		}
+		for match := range output {
+			if match.Type != ChangesTypeMatchFound {
+				continue
+			}
+
+			for _, p := range match.Players {
+				delete(mapPlayers, p.ID)
+			}
+
+			if len(mapPlayers) == 0 {
+				cancelFunc()
+			}
 		}
 
-		if len(mapPlayers) == 0 {
-			cancelFunc()
-		}
-	}
-
-	// Assert
-	assert.Equal(t, 0, len(mapPlayers), "All players should be found")
+		// Assert
+		assert.Equal(t, 0, len(mapPlayers), "All players should be found")
+	})
 }
 
 func TestMatchSessionNotFound(t *testing.T) {
@@ -121,9 +124,6 @@ func TestMatchSessionNotFound(t *testing.T) {
 		MaxLevelDiff:             1,
 		MatchTimeoutAfterSeconds: 60,
 	}, storage)
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
-
-	// Act
 	players := []Player{
 		{ID: "1", Level: 1},
 		{ID: "2", Level: 10},
@@ -133,32 +133,36 @@ func TestMatchSessionNotFound(t *testing.T) {
 		{ID: "6", Level: 50},
 	}
 
-	output := service.Run(ctx)
+	// Act
+	synctest.Run(func() {
+		ctx, cancelFunc := context.WithTimeout(t.Context(), time.Second*5)
+		output := service.Run(ctx)
 
-	for _, p := range players {
-		service.AddPlayer(p)
-	}
+		for _, p := range players {
+			service.AddPlayer(p)
+		}
 
-	matchFound := false
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case match := <-output:
-				if match.Type == ChangesTypeMatchFound {
-					matchFound = true
+		matchFound := false
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case match := <-output:
+					if match.Type == ChangesTypeMatchFound {
+						matchFound = true
+						cancelFunc()
+					}
+				case <-time.After(time.Millisecond * 1100):
 					cancelFunc()
 				}
-			case <-time.After(time.Millisecond * 1100):
-				cancelFunc()
 			}
-		}
-	}()
-	<-ctx.Done()
+		}()
+		<-ctx.Done()
 
-	// Assert
-	assert.False(t, matchFound, "Match session should not be found")
+		// Assert
+		assert.False(t, matchFound, "Match session should not be found")
+	})
 }
 
 func TestMatchSessionRemovePlayerFromQueue(t *testing.T) {
@@ -171,7 +175,7 @@ func TestMatchSessionRemovePlayerFromQueue(t *testing.T) {
 		MaxLevelDiff:             1,
 		MatchTimeoutAfterSeconds: 60,
 	}, storage)
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancelFunc := context.WithTimeout(t.Context(), time.Second*5)
 
 	// Act
 	players := []Player{
@@ -228,60 +232,46 @@ func TestMatchSessionPlayerTimeout(t *testing.T) {
 		MaxLevelDiff:             1,
 		MatchTimeoutAfterSeconds: 1,
 	}, storage)
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
-
-	// Act
 	players := []Player{
 		{ID: "1", Level: 1},
 	}
 
-	output := service.Run(ctx)
+	// Act
+	synctest.Run(func() {
+		ctx, cancelFunc := context.WithTimeout(t.Context(), time.Second*5)
+		output := service.Run(ctx)
+		for _, p := range players {
+			service.AddPlayer(p)
+		}
 
-	for _, p := range players {
-		service.AddPlayer(p)
-	}
-
-	player := players[0]
-
-	playerTimeout := false
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(service.config.TimeoutDuration() + time.Millisecond*100):
-				cancelFunc()
-			case match := <-output:
-				if match.Type == ChangesTypeTimeout {
-					if slices.ContainsFunc(match.Players, func(p Player) bool {
-						return p.ID == player.ID
-					}) {
-						playerTimeout = true
-						cancelFunc()
-					}
+		player := players[0]
+		playerTimeout := false
+		for match := range output {
+			if match.Type == ChangesTypeTimeout {
+				if slices.ContainsFunc(match.Players, func(p Player) bool {
+					return p.ID == player.ID
+				}) {
+					playerTimeout = true
+					cancelFunc()
 				}
 			}
 		}
-	}()
-	<-ctx.Done()
 
-	// Assert
-	assert.True(t, playerTimeout, "Player should be timed out")
+		// Assert
+		assert.True(t, playerTimeout, "Player should be timed out")
+	})
 }
 
 func TestMatchSessionEmptyQueue(t *testing.T) {
 	// Arrange
 	storage := NewStorage()
 	service := NewService(emptyLogger, MatchmakingConfig{
-		QueueSize:                10,
+		QueueSize:                15,
 		MinGroupSize:             2,
 		FindGroupEverySeconds:    1,
 		MaxLevelDiff:             1,
 		MatchTimeoutAfterSeconds: 1,
 	}, storage)
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*5)
-
-	// Act
 	players := []Player{
 		{ID: "1", Level: 1},
 		{ID: "2", Level: 10},
@@ -290,25 +280,19 @@ func TestMatchSessionEmptyQueue(t *testing.T) {
 		{ID: "5", Level: 40},
 	}
 
-	output := service.Run(ctx)
-
-	for _, p := range players {
-		service.AddPlayer(p)
-	}
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(service.config.TimeoutDuration() + time.Millisecond*100):
-				cancelFunc()
-			case <-output:
-			}
+	// Act
+	synctest.Run(func() {
+		ctx, _ := context.WithTimeout(t.Context(), time.Second*5)
+		output := service.Run(ctx)
+		for _, p := range players {
+			service.AddPlayer(p)
 		}
-	}()
-	<-ctx.Done()
+		time.Sleep(time.Second * time.Duration(service.config.MatchTimeoutAfterSeconds+1))
 
-	// Assert
-	assert.Zero(t, storage.TotalPlayers(), "Queue should be empty")
+		// Assert
+		for m := range output {
+			assert.NotEqual(t, ChangesTypeMatchFound, m.Type, "Match session should not be found")
+		}
+		assert.Zero(t, storage.TotalPlayers(), "Queue should be empty")
+	})
 }
